@@ -15,32 +15,68 @@ pub struct RawCell {
 #[derive(Clone, Copy)]
 pub struct RawEvent {
     pub etype: u8,
-    pub emod: u8,
     pub key: u16,
     pub ch: u32,
-    pub w: i32,
-    pub h: i32,
-    pub x: i32,
-    pub y: i32,
+    pub meta: u8,
+    pub w: i16,
+    pub h: i16,
+    pub x: i16,
+    pub y: i16,
 }
 
 extern "C" {
     pub fn tb_init() -> c_int;
+    pub fn tb_init_screen(flags: c_int) -> c_int;
+    pub fn tb_init_with(flags: c_int) -> c_int;
+    pub fn tb_init_file() -> c_int;
+    // pub fn tb_init_fd(inout: u16) -> c_int;
     pub fn tb_shutdown();
+
     pub fn tb_width() -> c_int;
     pub fn tb_height() -> c_int;
-    pub fn tb_clear();
+
+    pub fn tb_clear_buffer();
     pub fn tb_set_clear_attributes(fg: u16, bg: u16);
-    pub fn tb_present();
+
+    pub fn tb_clear_screen();
+
+    pub fn tb_render();
+
+    pub fn tb_rgb(i: u32) -> u16;
+
     pub fn tb_set_cursor(cx: c_int, cy: c_int);
-    pub fn tb_put_cell(x: c_int, y: c_int, cell: *const RawCell);
-    pub fn tb_change_cell(x: c_int, y: c_int, ch: u32, fg: u16, bg: u16);
-    pub fn tb_blit(x: c_int, y: c_int, w: c_int, h: c_int, cells: *const RawCell);
+    pub fn tb_set_title(title: *const c_char);
+
+    pub fn tb_flush();
+    pub fn tb_send(s: *const c_char);
+
+    // TODO: sendf, ...
+    
+    pub fn tb_string(x: c_int, y: c_int, fg: u16, bg: u16, s: *const c_char) -> c_int; 
+    pub fn tb_string_with_limit(x: c_int, y: c_int, fg: u16, bg: u16, s: *const c_char, limit: c_int) -> c_int; 
+
+    // TODO: tb_stringf, ...
+
+    pub fn tb_char(x: c_int, y: c_int, fg: u16, bg: u16, ch: c_char);
+
+    pub fn tb_empty(x: c_int, y: c_int, fg: u16, bg: u16, width: c_int);
+
+    pub fn tb_cell(x: c_int, y: c_int, cell: *const RawCell);
     pub fn tb_cell_buffer() -> *mut RawCell;
-    pub fn tb_select_input_mode(mode: c_int) -> c_int;
-    pub fn tb_select_output_mode(mode: c_int) -> c_int;
+
+    pub fn tb_hide_cursor();
+    pub fn tb_show_cursor();
+
+    pub fn tb_enable_mouse();
+    pub fn tb_disable_mouse();
+
     pub fn tb_peek_event(ev: *mut RawEvent, timeout: c_int) -> c_int;
     pub fn tb_poll_event(ev: *mut RawEvent) -> c_int;
+
+    pub fn tb_resize();
+
+    pub fn tb_select_output_mode(mode: c_int) -> c_int;
+
     pub fn tb_utf8_char_length(c: c_char) -> c_int;
     pub fn tb_utf8_char_to_unicode(out: *mut u32, c: *const c_char) -> c_int;
     pub fn tb_utf8_unicode_to_char(out: *mut c_char, c: u32) -> c_int;
@@ -64,10 +100,12 @@ pub const TB_KEY_HOME: u16 = 0xffff - 14;
 pub const TB_KEY_END: u16 = 0xffff - 15;
 pub const TB_KEY_PGUP: u16 = 0xffff - 16;
 pub const TB_KEY_PGDN: u16 = 0xffff - 17;
-pub const TB_KEY_ARROW_UP: u16 = 0xffff - 18;
-pub const TB_KEY_ARROW_DOWN: u16 = 0xffff - 19;
-pub const TB_KEY_ARROW_LEFT: u16 = 0xffff - 20;
-pub const TB_KEY_ARROW_RIGHT: u16 = 0xffff - 21;
+
+pub const TB_KEY_ARROW_LEFT: u16 = 0xffff - 18;
+pub const TB_KEY_ARROW_RIGHT: u16 = 0xffff - 19;
+pub const TB_KEY_ARROW_DOWN: u16 = 0xffff - 20;
+pub const TB_KEY_ARROW_UP: u16 = 0xffff - 21;
+
 pub const TB_KEY_MOUSE_LEFT: u16 = 0xffff - 22;
 pub const TB_KEY_MOUSE_RIGHT: u16 = 0xffff - 23;
 pub const TB_KEY_MOUSE_MIDDLE: u16 = 0xffff - 24;
@@ -123,19 +161,39 @@ pub const TB_KEY_CTRL_8: u16 = 0x7f;
 
 pub const TB_MOD_ALT: u8 = 0x01;
 
+// colors (without true color)
+// TODO: true color
 pub const TB_DEFAULT: u16 = 0x00;
-pub const TB_BLACK: u16 = 0x01;
-pub const TB_RED: u16 = 0x02;
-pub const TB_GREEN: u16 = 0x03;
-pub const TB_YELLOW: u16 = 0x04;
-pub const TB_BLUE: u16 = 0x05;
-pub const TB_MAGENTA: u16 = 0x06;
-pub const TB_CYAN: u16 = 0x07;
-pub const TB_WHITE: u16 = 0x08;
+pub const TB_RED: u16 = 0x01;
+pub const TB_GREEN: u16 = 0x02;
+pub const TB_YELLOW: u16 = 0x03;
+pub const TB_BLUE: u16 = 0x04;
+pub const TB_MAGENTA: u16 = 0x05;
+pub const TB_CYAN: u16 = 0x06;
+pub const TB_LIGHT_GRAY: u16 = 0x07;
+pub const TB_MEDIUM_GRAY: u16 = 0x08;
+pub const TB_GRAY: u16 = 0x08;
+pub const TB_LIGHT_RED: u16 = 0x09;
+pub const TB_LIGHT_GREEN: u16 = 0x0A;
+pub const TB_LIGHT_YELLOW: u16 = 0x0B;
+pub const TB_LIGHT_BLUE: u16 = 0x0C;
+pub const TB_LIGHT_MAGENTA: u16  =  0x0D;
+pub const TB_LIGHT_CYAN: u16 = 0x0E;
+pub const TB_WHITE: u16 = 0x0F;
+pub const TB_BLACK: u16 = 0x10;
+
+pub const TB_DARKEST_GRAY: u16 = 234;
+pub const TB_DARKER_GRAY: u16 = 236;
+pub const TB_DARK_GRAY: u16 = 241;
+
+pub const TB_LIGHTER_GRAY: u16 = 251;
+pub const TB_LIGHTEST_GRAY: u16 = 254;
 
 pub const TB_BOLD: u16 = 0x0100;
-pub const TB_UNDERLINE: u16 = 0x0200;
-pub const TB_REVERSE: u16 = 0x0400;
+pub const TB_UNDERLINE: u16 = 0x0400;
+pub const TB_REVERSE: u16 = 0x0800;
+// #define TB_ITALIC    0x0300
+// #define TB_STRIKE    0x0900
 
 pub const TB_EVENT_KEY: u8 = 1;
 pub const TB_EVENT_RESIZE: u8 = 2;
@@ -147,15 +205,29 @@ pub const TB_EPIPE_TRAP_ERROR: c_int = -3;
 
 pub const TB_HIDE_CURSOR: c_int = -1;
 
+pub const TB_INIT_ALL: c_int = -1;
+pub const TB_INIT_ALTSCREEN: c_int = 1;
+pub const TB_INIT_KEYPAD: c_int = 2;
+pub const TB_INIT_NO_CURSOR: c_int = 3;
+pub const TB_INIT_DETECT_MODE: c_int = 4;
+
 pub const TB_INPUT_CURRENT: c_int = 0;
 pub const TB_INPUT_ESC: c_int = 1;
 pub const TB_INPUT_ALT: c_int = 2;
 pub const TB_INPUT_MOUSE: c_int = 4;
 
-pub const TB_OUTPUT_CURRENT: c_int = 0;
-pub const TB_OUTPUT_NORMAL: c_int = 1;
-pub const TB_OUTPUT_256: c_int = 2;
-pub const TB_OUTPUT_216: c_int = 3;
-pub const TB_OUTPUT_GRAYSCALE: c_int = 4;
+pub const TB_OUTPUT_NORMAL: c_int = 0;
+pub const TB_OUTPUT_256: c_int = 1;
+// needs to be compiled with true color
+pub const TB_OUTPUT_TRUECOLOR: c_int = 2;
 
 pub const TB_EOF: c_int = -1;
+
+pub const TB_META_SHIFT: c_int = 2;
+pub const TB_META_ALT: c_int = 3;
+pub const TB_META_ALTSHIFT: c_int = 4;
+pub const TB_META_CTRL: c_int = 5;
+pub const TB_META_CTRLSHIFT: c_int = 6;
+pub const TB_META_ALTCTRL: c_int = 7;
+pub const TB_META_ALTCTRLSHIFT: c_int = 8;
+pub const TB_META_MOTIO: c_int = 9;

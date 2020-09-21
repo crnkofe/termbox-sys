@@ -1,3 +1,4 @@
+use std::fs;
 use std::env;
 use std::path::Path;
 use std::process::{Stdio, Command};
@@ -6,18 +7,24 @@ fn main() {
     let out_dir = env::var("OUT_DIR").unwrap();
     let dst = Path::new(&out_dir);
 
+    println!("cargo:rustc-link-search=native=./.termbox/build/libtermbox.a");
+    println!("cargo:rustc-link-lib=static=termbox");
+    println!("cargo:rustc-flags=-L ./.termbox/build/");
+
     setup();
     configure();
     build();
     install(&dst);
-    clean();
-    println!("cargo:rustc-flags=-L {} -l static=termbox", dst.join("lib").display());
 }
 
 fn setup() {
+    if Path::new(".termbox").exists() {
+        println!(".termbox exists");
+        return;
+    } 
     let mut cmd = Command::new("git");
     cmd.arg("clone");
-    cmd.arg("https://github.com/nsf/termbox");
+    cmd.arg("https://github.com/tomas/termbox");
     cmd.arg(".termbox");
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let cargo_dir = Path::new(&manifest_dir);
@@ -37,9 +44,8 @@ fn clean() {
 }
 
 fn configure() {
-    let mut cmd = waf();
-    cmd.arg("configure");
-    cmd.arg("--prefix=/");
+    let mut cmd = new_cmd("ls");
+    // cmd.arg("--prefix=/");
 
     let target = env::var("TARGET").unwrap();
     let mut cflags;
@@ -50,7 +56,7 @@ fn configure() {
     } else {
         cflags = "-fPIC"
     }
-    println!("waf configure: setting CFLAGS to: `{}`", cflags);
+    println!("new_cmd configure: setting CFLAGS to: `{}`", cflags);
     env::set_var("CFLAGS", cflags);
 
     run(&mut cmd);
@@ -58,31 +64,42 @@ fn configure() {
 }
 
 fn build() {
-    let mut cmd = waf();
-    cmd.arg("build");
-    cmd.arg("--targets=termbox_static");
-    run(&mut cmd);
-}
-
-fn install(dst: &Path) {
-    let mut cmd = waf();
-    cmd.arg("install");
-    cmd.arg("--targets=termbox_static");
-    cmd.arg(format!("--destdir={}", dst.display()));
-    run(&mut cmd);
-}
-
-fn waf() -> Command {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let cargo_dir = Path::new(&manifest_dir);
     let termbox_dir = cargo_dir.join(".termbox");
-    let mut cmd = Command::new("./waf");
+
+    let mut mkdir_build_cmd = new_cmd("mkdir");
+    mkdir_build_cmd.arg("-p");
+    mkdir_build_cmd.arg("build");
+    mkdir_build_cmd.current_dir(&termbox_dir);
+    run(&mut mkdir_build_cmd);
+
+    let mut build_cmd = Command::new("cmake"); 
+    build_cmd.arg("..");
+    build_cmd.current_dir(cargo_dir.join(".termbox/build"));
+    run(&mut build_cmd);
+}
+
+fn install(dst: &Path) {
+    let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+    let cargo_dir = Path::new(&manifest_dir);
+    let termbox_dir = cargo_dir.join(".termbox/build");
+
+    let mut cmd = new_cmd("make");
+    cmd.current_dir(&termbox_dir);
+    run(&mut cmd);
+}
+
+fn new_cmd(cmd: &str) -> Command {
+    let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+    let cargo_dir = Path::new(&manifest_dir);
+    let termbox_dir = cargo_dir.join(".termbox");
+    let mut cmd = Command::new(cmd);
     cmd.current_dir(&termbox_dir);
     cmd
 }
 
 fn run(cmd: &mut Command) {
-    println!("running: {:?}", cmd);
     assert!(cmd.stdout(Stdio::inherit())
                 .stderr(Stdio::inherit())
                 .status()
