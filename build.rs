@@ -24,7 +24,7 @@ fn setup() {
     } 
     let mut cmd = Command::new("git");
     cmd.arg("clone");
-    cmd.arg("https://github.com/tomas/termbox");
+    cmd.arg("https://github.com/crnkofe/termbox");
     cmd.arg(".termbox");
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let cargo_dir = Path::new(&manifest_dir);
